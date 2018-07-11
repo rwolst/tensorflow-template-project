@@ -1,0 +1,264 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Arsclassica Article
+% LaTeX Template
+% Version 1.1 (1/8/17)
+%
+% This template has been downloaded from:
+% http://www.LaTeXTemplates.com
+%
+% Original author:
+% Lorenzo Pantieri (http://www.lorenzopantieri.net) with extensive modifications by:
+% Vel (vel@latextemplates.com)
+%
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+\documentclass[
+10pt, % Main document font size
+a4paper, % Paper type, use 'letterpaper' for US Letter paper
+oneside, % One page layout (no page indentation)
+%twoside, % Two page layout (page indentation for binding and different headers)
+headinclude,footinclude, % Extra spacing for the header and footer
+BCOR5mm, % Binding correction
+]{scrartcl}
+
+\input{structure.tex} % Include the structure.tex file which specified the document structure and layout
+
+\hyphenation{Fortran hy-phen-ation} % Specify custom hyphenation points in words with dashes where you would like hyphenation to occur, or alternatively, don't put any dashes in a word to stop hyphenation altogether
+
+\newcommand{\bftheta}{\boldsymbol{\theta}}
+\newcommand{\bfmu}{\boldsymbol{\mu}}
+\newcommand{\bfalpha}{\boldsymbol{\alpha}}
+\newcommand{\bfX}{\boldsymbol{X}}
+\newcommand{\bfx}{\boldsymbol{x}}
+\newcommand{\bfw}{\boldsymbol{w}}
+\newcommand{\bfY}{\boldsymbol{Y}}
+\newcommand{\bfy}{\boldsymbol{y}}
+\newcommand{\bfz}{\boldsymbol{z}}
+\newcommand{\bfbeta}{\boldsymbol{\beta}}
+\newcommand{\bfpi}{\boldsymbol{\pi}}
+\newcommand{\bfe}{\boldsymbol{e}}
+\newcommand{\bff}{\boldsymbol{f}}
+\DeclareMathOperator{\tr}{tr}
+
+\newtheorem{remark}{Remark}
+
+%----------------------------------------------------------------------------------------
+%	TITLE AND AUTHOR(S)
+%----------------------------------------------------------------------------------------
+
+\title{\normalfont\spacedallcaps{Learning with Random Inputs}} % The article title
+
+%\subtitle{Subtitle} % Uncomment to display a subtitle
+
+\author{\spacedlowsmallcaps{Robert Wolstenholme}} % The article author(s) - author affiliations need to be specified in the AUTHOR AFFILIATIONS block
+
+\date{} % An optional date to appear under the author(s)
+
+%----------------------------------------------------------------------------------------
+
+\begin{document}
+
+%----------------------------------------------------------------------------------------
+%	HEADERS
+%----------------------------------------------------------------------------------------
+
+\renewcommand{\sectionmark}[1]{\markright{\spacedlowsmallcaps{#1}}} % The header for all pages (oneside) or for even pages (twoside)
+%\renewcommand{\subsectionmark}[1]{\markright{\thesubsection~#1}} % Uncomment when using the twoside option - this modifies the header on odd pages
+\lehead{\mbox{\llap{\small\thepage\kern1em\color{halfgray} \vline}\color{halfgray}\hspace{0.5em}\rightmark\hfil}} % The header style
+
+\pagestyle{scrheadings} % Enable the headers specified in this block
+
+%----------------------------------------------------------------------------------------
+%	TABLE OF CONTENTS & LISTS OF FIGURES AND TABLES
+%----------------------------------------------------------------------------------------
+
+\maketitle % Print the title/author/date block
+
+\setcounter{tocdepth}{2} % Set the depth of the table of contents to show sections and subsections only
+
+\tableofcontents % Print the table of contents
+
+\listoffigures % Print the list of figures
+
+\listoftables % Print the list of tables
+
+%----------------------------------------------------------------------------------------
+%	ABSTRACT
+%----------------------------------------------------------------------------------------
+
+\section*{Abstract} % This section will not appear in the table of contents due to the star (\section*)
+
+Given some observations of dependent and independent and independent variables, there are many ways to learn some relationship between them. This essentially falls under the category of supervised learning. However, if we do not directly observe the independent variables but instead simply the distribution they have come from we have to modify some techniques so that they become tractable. This can arise when the true values of the independent variables are essentially hidden and we only have an estimate of their distribution.
+
+We will examine the case for a softmax regression with a multivariate normal distribution for the independent varaibles. Two different approximations are used to the objective function to make the optimisation tractable. Then we look to performing the optimisation in the Scikit-Learn and Tensorflow libraries.
+
+%----------------------------------------------------------------------------------------
+%	AUTHOR AFFILIATIONS
+%----------------------------------------------------------------------------------------
+
+\let\thefootnote\relax\footnotetext{* \textit{Department of Biology, University of Examples, London, United Kingdom}}
+
+\let\thefootnote\relax\footnotetext{\textsuperscript{1} \textit{Department of Chemistry, University of Examples, London, United Kingdom}}
+
+%----------------------------------------------------------------------------------------
+
+\newpage % Start the article content on the second page, remove this if you have a longer abstract that goes onto the second page
+
+%----------------------------------------------------------------------------------------
+%	INTRODUCTION
+%----------------------------------------------------------------------------------------
+
+\section{Introduction}
+
+Consider the known multivariate normal parameters at time $t$
+
+$$ \bfmu_t \in \mathbb{R}^n \mbox{ and } \Sigma_t \in \mathbb{R}^{n \times n} $$
+
+such that we have a random variable
+
+$$ \bfX_t \sim MVN(\bfmu_t, \Sigma_t). $$
+
+\begin{remark}
+The actual realisations $\bfx_t$ from $\bfX_t$ will never be observed and essentially represent independent variables.
+\end{remark}
+
+Also consider an observation vector at time $t$,
+
+$$ \bfy_t \in \{0,1\}^k $$
+
+such that $\sum_{i=0}^k y_{i,t} = 1$ i.e. $\bfy_t$ contains a unique entry equal to 1 and the rest are 0. It therefore represents our dependent variable and is a realisation from a multinomial distribution conditional on $\bfX_t$,
+
+$$ \bfY_t | \bfX_t = \bfx_t \sim Multinomial(g_W(\bfx_t)), $$
+
+where the $i$th component of $g_W(\bfx_t)$ is
+
+$$ [g_W(\bfx_t)]_i = \frac{\exp(\bfw_i^T \bfx_t)}{\sum_{j=1}^k \exp(\bfw_j^T \bfx_t)}.$$
+
+Hence $g_W(\cdot)$ is a softmax transformation with weight vectors $\bfw_i \in \mathbb{R}^n$ which we write as a matrix
+
+$$ W = [\bfw_1, \dots, \bfw_k] \in \mathbb{R}^{n \times k}. $$
+
+Our goal is that given some sequence of observations $\{\bfy_t\}$ and observed distribution parameters $(\{\bfmu_t\}, \{\Sigma_t\})$, to find optimal weight matrix $W$.
+
+\begin{remark}
+While we think of all components of $\bfX_t$ being stochastic, non-random components are of course dealt with by $0$s in the covariance matrix.
+\end{remark} 
+
+ 
+%----------------------------------------------------------------------------------------
+%	Optimisation
+%----------------------------------------------------------------------------------------
+
+\section{Optimisation}
+In order to write the optimisation, we must first write the likelihood function, given some values for $W$, of observing the $\bfy_t$ value.
+
+The conditional probability is (from a multinomial distribution),
+
+$$ \Pr(\bfY_t = \bfy_t | \bfX_t = \bfx_t; W) = g_W(\bfx_t)^T \bfy_t $$
+
+and so the likelihood is
+
+$$ \Pr(\bfY_t = \bfy_t; W) = \int_{\bfx_t} \left [g_W(\bfx_t)^T \bfy_t \right ] f_{\bfX_t}(\bfx_t) d\bfx_t $$ 
+
+where $f_{\bfX_t}(\bfx_t)$ is a multivariate normal pdf with parameters $\bfmu_t$ and $\Sigma_t$ and the `$;W$' represents the fact the probability depends on deterministic matrix $W$.
+
+Expanding this over all values of $t$ ($1, \dots, T$), we have likelihood
+
+$$ L(W) = \prod_{t=1}^T \Pr(\bfY_t = \bfy_t; W) $$
+$$ = \int_{\bfx_1} \dots \int_{\bfx_T} \prod_{t=1}^T \left [g_W(\bfx_t)^T \bfy_t \right ] f_{\bfX_1,\dots,\bfX_T}(\bfx_1, \dots, \bfx_T) d\bfx_1 \dots d\bfx_T. $$
+
+Under the assumption of independence between the $\{\bfX_t\}$ (which in reality is very often not going to be true) this can be written
+
+$$ L(W) = \prod_{t=1}^T \int_{\bfx_t} \left [g_W(\bfx_t)^T \bfy_t \right ] f_{\bfX_t}(\bfx_t) d\bfx_t$$
+
+and the log likelihood can be written
+
+$$ \log(L(W)) = LL(W) = \sum_{t=1}^T \log \left [ \int_{\bfx_t} \left [g_W(\bfx_t)^T \bfy_t \right ] f_{\bfX_t}(\bfx_t) d\bfx_t \right ].$$
+
+The optimisation to solve can then be written as
+
+$$ \hat{W} = \arg \max_W LL(W) + \lambda r(W)$$
+
+for some $\lambda \in \mathbb{R}$ and regularisation function $r: \mathbb{R}^{n \times k} \rightarrow \mathbb{R}$.
+
+\begin{remark}
+\begin{enumerate}
+  \item Despite the fact the independence between the $\{\bfX_t\}$ is often not true, there is very little we can do. If we don't know the joint distribution of course there is nothing we can do, but even if it is known, the already intractable computation becomes even harder to approximate.
+  \item The integrals within the likelihood are expectations over $\bfX_t$ i.e.
+  $$ \mathbb{E}_{\bfX_t} \left [ g_W(\bfx_t)^T \bfy_t \right ] = \int_{\bfx_t} \left [g_W(\bfx_t)^T \bfy_t \right ] f_{\bfX_t}(\bfx_t) d\bfx_t.$$
+  \item In general the integral is intractable and we have to use numerical approximations to evaluate and get a gradient for $LL(W)$.
+  \item For the regularisation, we will use the L2 norm i.e. 
+  $$r(W) = || W ||_2 = \sum_{i,j} W_{ij}^2.$$
+\end{enumerate}
+\end{remark}
+
+\subsection{Approximation 1}
+First write the log likelihood as 
+$$ LL(W) = \sum_{t=1}^T \log \mathbb{E}_{\bfX_t} \left [g_W(\bfx_t)^T \bfy_t \right ]. $$
+
+Now, $g_W(\bfx_t)^T \bfy_t$ is not convex or concave. This can be seen by considering the sigmoid function $y = \frac{e^x}{1+e^x}$ which has second derivative $\frac{\partial^2 y}{\partial x^2} = (1-y)(1-2y)y$. This is negative for $x > 0$ and positive for $x < 0$.
+
+We cannot therefore use Jensen's inequality to get a lower/upper bound but we still attempt the approximation by swapping the expectation into the function
+
+$$ LL^{(1)}(W) = \sum_{t=1}^T \log \left [g_W(\mathbb{E}_{\bfX_t}[\bfx_t])^T \bfy_t \right ] = \sum_{t=1}^T \log \left [g_W(\bfmu_t)^T \bfy_t \right ].$$
+
+The optimsation
+$$ \hat{W}^{(1)} = \arg \max_W LL^{(1)}(W) + \lambda r(W) $$
+
+is simply a standard constrained softmax regression and we solve it using:
+\begin{enumerate}
+  \item Scikit-Learn: sklearn.linear\_model.LogisticRegression class with multi\_class = `multinomial'.
+  \item Tensorflow: Coded constrained softmax regression.
+\end{enumerate}
+
+\begin{remark}
+The above approximation completely discard the information provided by the $\{\Sigma_t\}$ covariance matrices.
+\end{remark}
+
+\subsection{Approximation 2}
+For our second approximation, we approximate the integrals as finite sums by samping from the $f_{\bfX_t}$ distribution i.e.
+
+$$ \int_{\bfx_t} \left [g_W(\bfx_t)^T \bfy_t \right ] f_{\bfX_t}(\bfx_t) d\bfx_t \approx \frac{1}{| \mathbb{X}_t |}\sum_{\bfx \in \mathbb{X}_t} g_W(\bfx)^T \bfy_t $$
+
+where $\mathbb{X}_t$ is a set of samples from the distribution with pdf $f_{\bfX_t}$.
+
+Therefore we write
+$$ LL^{(2)}(W) = \sum_{t=1}^T \log \left [ \frac{1}{| \mathbb{X}_t |}\sum_{\bfx \in \mathbb{X}_t} g_W(\bfx)^T \bfy_t \right ].$$
+
+Note that this has gradient
+$$ \frac{\partial LL^{(2)}(W)}{\partial W} = \sum_{t=1}^T  \frac{\sum_{\bfx \in \mathbb{X}_t} \frac{\partial g_W(\bfx)^T \bfy_t}{\partial W}} {\sum_{\bfx \in \mathbb{X}_t} g_W(\bfx)^T \bfy_t} .$$
+
+\begin{remark}
+\begin{enumerate}
+  \item The size of the sets $\mathbb{X}_t$ no longer matters once we consider the derivative of $LL^{(2)}(W)$ (which is what will be used in gradient ascent/descent). Hence all that matters is we have enough samples for a `good' approximation to each integral. Even then the definition of good really is whether the optimisation converges to the correct values and if we have enough observations, it may be enough to simply have $| \mathbb{X}_t | = 1$!
+  \item If we have $| \mathbb{X}_t | = 1 $ for all $t$, then $LL^{(2)}(W)$ is in the form of a standard softmax regression, like $LL^{(1)}(W)$, with the only difference being that $LL^{(1)}(W)$ uses the mean value of the observations $\bfmu_t$ and $LL^{(2)}(W)$ uses a sample from $MVN(\bfmu_t, \Sigma_t)$.
+\end{enumerate}
+\end{remark}
+
+Hence, we solve $LL^{(2)}(W)$ using:
+\begin{enumerate}
+  \item Scikit-Learn: sklearn.linear\_model.LogisticRegression class with multi\_class = `multinomial' only when $| \mathbb{X}_t | = 1$ for all $t$.
+  \item Tensorflow: For varying sizes of the $\mathbb{X}_t $.
+\end{enumerate}
+
+
+%----------------------------------------------------------------------------------------
+%	BIBLIOGRAPHY
+%----------------------------------------------------------------------------------------
+
+\renewcommand{\refname}{\spacedlowsmallcaps{References}} % For modifying the bibliography heading
+
+\bibliographystyle{unsrt}
+
+\bibliography{sample.bib} % The file containing the bibliography
+
+%----------------------------------------------------------------------------------------
+
+\end{document}
