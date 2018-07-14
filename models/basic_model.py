@@ -6,6 +6,7 @@ import os
 import copy
 import tensorflow as tf
 
+
 class BasicModel():
     """A basic class for other Tensorflow models to inherit from."""
 
@@ -30,8 +31,8 @@ class BasicModel():
         # Remember to use it in your TF graph (`tf.set_random_seed()`).
         self.random_seed = self.config['random_seed']
 
-        # All models share some basics hyper parameters, this is the section where we
-        # copy them into the model
+        # All models share some basics hyper parameters, this is the section
+        # where we copy them into the model.
         self.result_dir = self.config['result_dir']
         self.max_iter = self.config['max_iter']
         self.lr = self.config['lr']  # Learning rate.

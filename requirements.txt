@@ -2,3 +2,6 @@ tensorflow
 numpy
 scipy
 contexttimer
+scikit-learn
+dill
+matplotlib
