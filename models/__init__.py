@@ -1,11 +1,11 @@
 """Makes any model accessible from the namespace `models`. Taken from
     https://blog.metaflow.fr/tensorflow-a-proposal-of-good-practices-for-files-folders-and-models-architecture-f23171501ae3
 """
-from models.basic_model import BasicModel
+from models.tf_model import TFModel
 from models.sklearn_model import SklearnModel
 
 __all__ = [
-    "BasicModel",
+    "TFModel",
     "SklearnModel"
 ]
 

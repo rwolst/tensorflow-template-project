@@ -12,8 +12,8 @@ project_dir = os.path.dirname(os.path.realpath(__file__))
 
 # Create argument parser.
 parser = argparse.ArgumentParser(description="Endpoint for running tests on"
-                                             "the softamx regression with"
-                                             "random inputs.")
+                                             " the softamx regression with"
+                                             " random inputs.")
 parser.add_argument('function',
                     type=str,
                     default="Train",
@@ -28,10 +28,15 @@ parser.add_argument('--best',
 parser.add_argument('--debug',
                     action='store_true',
                     help="Print the configuration when creating model.")
+parser.add_argument('--sample_seed',
+                    type=int,
+                    default=np.random.randint(0, 2**32 - 1),
+                    help="Value of sample seed (used for sampling).")
 parser.add_argument('--random_seed',
                     type=int,
                     default=np.random.randint(0, 2**32 - 1),
-                    help="Value of random seed.")
+                    help="Value of random seed (used for everything other than"
+                         " sampling).")
 parser.add_argument('--result_dir',
                     type=str,
                     default=None,
@@ -60,20 +65,21 @@ parser.add_argument('--C',
                     help="L2 penalty size.")
 parser.add_argument('--R',
                     type=int,
-                    default=20,
+                    default=50,
                     help="Size of independent variables (default should be"
                          " correct).")
 parser.add_argument('--K',
                     type=int,
                     default=20,
                     help="Total classes for dependent variables (default"
-                         " should be correct.")
+                         " should be correct).")
 parser.add_argument('--method',
                     type=str,
                     default='mean',
-                    help="Either 'mean' or 'sample'. Chooses whether to learn"
-                         " by taking mean values from distribution or by"
-                         " sampling them.")
+                    help="Either 'mean', 'sample' or 'true'. Chooses whether"
+                         " to learn by taking mean values from distribution,"
+                         " by sampling them, or by using the actual true"
+                         " values.")
 parser.add_argument('--n_samples',
                     type=int,
                     default=1,

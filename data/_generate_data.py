@@ -57,13 +57,15 @@ The genereted files are:
 import numpy as np
 from contexttimer import Timer
 from scipy.stats import ortho_group
+import scipy.sparse
+import scipy as sp
 
 # We use the following constants for generating the data.
 N_TRAIN = 650000
 N_VAL   = 150000
 N_TEST  = 200000
 N = {'train': N_TRAIN, 'val': N_VAL, 'test': N_TEST}
-R = 20
+R = 50
 K = 20
 RANDOM_SEED = 42
 
@@ -74,6 +76,9 @@ ORTHO_SAMPLES = 200
 # A parameter for controlling how large the values of the covariance matrix are
 # and hence how random the independent variables are.
 VAR_SIZE = 0.1
+
+# A parameter for controlling density of inverse covariance cholesky factor.
+DENSITY = 0.1  # Percentage of non-zero values.
 
 
 def softmax(Z):
@@ -95,6 +100,18 @@ def softmax(Z):
     return out
 
 
+def sparse_random(n_rows, n_cols, density, dtype):
+    """A faster implementation of scipy.sparse.rand?"""
+    if density == 0:
+        return sp.sparse.coo_matrix((n_rows, n_cols), dtype=dtype)
+    N = n_rows * n_cols
+    nnz = int(N * density)
+    idx = np.random.choice(N, nnz, replace=False)
+    rows, cols = np.divmod(idx, n_cols)
+    data = np.random.rand(nnz).astype(dtype)
+    return sp.sparse.coo_matrix((data, (rows, cols)), shape=[n_rows, n_cols])
+
+
 # Set the seed.
 np.random.seed(RANDOM_SEED)
 
@@ -102,56 +119,49 @@ np.random.seed(RANDOM_SEED)
 W = np.random.randn(R, K).astype(np.float32)
 b = np.random.randn(K).astype(np.float32)
 
-# Multivariate normal distribution i.e. mu and sigma.
+# Multivariate normal distribution i.e. mu and sigma (represented by Cholesky
+# factor of its inverse).
 mu = {}
-sigma = {}
+L_T = {}
 
 for set_name in N:
     ## Mu is easy.
     mu[set_name] = np.random.randn(N[set_name], R).astype(np.float32)
 
-    ## Sigma we have to ensure is symmetric positive definite.
-    ## Note however, we can just create a lower traingular matrix as this is
-    ## all thats needed for sampling.
-    ## Note also that we cannot store a huge covariance matrix, so to get more
-    ## samples we can either make it sparse, or only generate a small amount
-    ## and index them for each observation.
-    ##     X = (np.tril(np.random.rand(5, N, N)) @ np.random.multivariate_normal(np.zeros(N), np.eye(N), size = 5)[:,:,None])
+    ## We don't save the covariance sigma itself, but the lower Cholesky
+    ## factor of its inverse. The reason we do this is so that we can assume
+    ## the inverse is sparse (which means non-inverse can be dense) and
+    ## therefore has sparse Cholesky factor. Denote this factor L s.t.
+    ##     L @ L.T = inv(sigma)
+    ## and hence
+    ##     inv(L.T) @ inv(L) = sigma.
+    ## Then we can sample MVN by finding
+    ##    mu + inv(L.T) @ z
+    ## where z is a vector of independent standard normal samples.
+    ## Hence we can simply store the sparse L.T for each observation.
+    ## Note also that to calculate
+    ##     inv(L.T) @ z,
+    ## we do not have to find exact inverse, just solve system of linear
+    ## equations
+    ##     L.T @ x = z.
 
-    ### Sample orthogonal matrices.
+    ## We add identity to avoid dealing with singular covariance. Note it is
+    ## actually fine for this to be the case (i.e. we have a non-random
+    ## feature) but requires in the traingular solve, substituting a 0
+    ## value for any of these features, which is not done automatically
+    ## (instead an exception is thrown).
     with Timer() as t:
-        Q = ortho_group.rvs(dim=R, size=ORTHO_SAMPLES).astype(np.float32)
-        idx = np.random.choice(ORTHO_SAMPLES, N[set_name], replace=True)
-        Q = Q[idx,:,:]
-    print('Time to generate %s Q: %s' % (set_name, t.elapsed))
+        L_T[set_name] = [sp.sparse.identity(R, dtype=np.float32) +
+                         sp.sparse.triu(
+                             sparse_random(R, R, DENSITY, np.float32))
+                         for i in range(N[set_name])]
+    print('Time to generate %s L_T: %s' % (set_name, t.elapsed))
 
-    assert Q.shape == (N[set_name], R, R)
-
-    ### Build diagonal matrix for controlling covariance entry size.
-    ### Note that we add a small value, as even though the eignevalues are
-    ### positive then numerical issues when they are very small can cause them
-    ### to become negative when.
-    with Timer() as t:
-        D = VAR_SIZE * np.apply_along_axis(
-                np.diag, 1, 0.001 + np.random.rand(N[set_name], R)
-            ).astype(np.float32)
-    print('Time to generate %s D: %s' % (set_name, t.elapsed))
-
-    ### Combine to create our symmetric positive definite sigma matrices i.e.
-    ###     sigma[i,:,:] = Q[i,:,:] @ D[i,:,:] @ Q[i,:,:].T
-    ### as symmetric positive definite matrices have orthogonal eigenvectors
-    ### and strictly positive eignevalues.
-    with Timer() as t:
-        sigma[set_name] = np.matmul(np.matmul(Q, D),
-                                    np.transpose(Q, [0, 2, 1]))
-    print('Time to generate %s sigma: %s' % (set_name, t.elapsed))
-
-    # Make sure the first eigenvalues are correct.
-    assert ((np.sort(np.linalg.eig(sigma[set_name][0,:,:])[0]) -
-             np.sort(np.diag(D[0,:,:])))**2 < 1e-5).all()
+    assert len(L_T[set_name]) == N[set_name]
+    assert L_T[set_name][0].shape == (R, R)
+    assert L_T[set_name][0].dtype == np.float32
 
     assert mu[set_name].dtype == np.float32
-    assert sigma[set_name].dtype == np.float32
 
 # Sample the true independent variables X (not sure how to do without a for
 # loop but should be fast compared to the sigma generation).
@@ -159,16 +169,17 @@ X = {}
 for set_name in N:
     X[set_name] = np.empty([N[set_name], R]).astype(np.float32)
     with Timer() as t:
-        for i in range(N[set_name]):
-            # As we are using float32 we reduce the tolerance of the positive
-            # (semi-)definite check.
-            X[set_name][i,:] = np.random.multivariate_normal(
-                                   mu[set_name][i,:],
-                                   sigma[set_name][i,:,:],
-                                   size=1,
-                                   tol=1e-6)
+        # As we are using float32 we reduce the tolerance of the positive
+        # (semi-)definite check.
+        X[set_name] = np.array(
+            [sp.sparse.linalg.spsolve_triangular(
+                t, np.random.normal(0, 1, R).astype(np.float32), lower=False)
+             for t in L_T[set_name]]).astype(np.float32)
+
+        X[set_name] = X[set_name] + mu[set_name]
     print('Time to sample %s X: %s' % (set_name, t.elapsed))
 
+    assert X[set_name].shape == (N[set_name], R)
     assert X[set_name].dtype == np.float32
 
 # Sample the dependent variables Y.
@@ -197,9 +208,9 @@ for set_name in N:
 np.save("train/mu", mu['train'])
 np.save("val/mu", mu['val'])
 np.save("test/mu", mu['test'])
-np.save("train/sigma", sigma['train'])
-np.save("val/sigma", sigma['val'])
-np.save("test/sigma", sigma['test'])
+np.save("train/L_T", L_T['train'])
+np.save("val/L_T", L_T['val'])
+np.save("test/L_T", L_T['test'])
 np.save("train/X", X['train'])
 np.save("val/X", X['val'])
 np.save("test/X", X['test'])

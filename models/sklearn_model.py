@@ -8,10 +8,13 @@ import os
 import re
 import copy
 import json
+import scipy.sparse
 import dill as pickle
 import numpy as np
+import scipy as sp
 from pprint import pprint
 import matplotlib.pyplot as plt
+from contexttimer import Timer
 
 from sklearn.linear_model import LogisticRegression
 
@@ -53,6 +56,11 @@ class SklearnModel():
         # Remember to use it in your TF graph (`tf.set_random_seed()`).
         self.random_seed = self.config['random_seed']
 
+        # In order to reproduce training that is started and stopped, we need
+        # to be able to exactly recreate the samples when `method == 'sample'`.
+        # Hence we save a sample seed separate to the random seed.
+        self.sample_seed = self.config['sample_seed']
+
         # Copy parameters into model.
         self.result_dir = self.config['result_dir']
         self.data_dir = self.config['data_dir']
@@ -70,11 +78,16 @@ class SklearnModel():
                   " using pred_proba(). It should be fixed in future.")
 
         self.method = self.config['method']
-        if self.method not in ['sample', 'mean']:
+        self.n_samples = self.config['n_samples']
+        if self.method not in ['sample', 'mean', 'true']:
             raise Exception("The method in configuration must be either 'mean'"
-                            " or 'sample'.")
+                            ", 'sample' or 'true'.")
+        elif self.method in ['mean', 'true']:
+            if self.n_samples != 1:
+                raise Exception("Number of samples can only be 1 when using"
+                                " methods 'mean' or 'true'.")
         elif self.method == 'sample':
-            if self.config.n_samples != 1:
+            if self.n_samples != 1:
                 raise Exception("Number of samples can only be 1 when using"
                                 " a Scikit-Learn model.")
 
@@ -101,11 +114,39 @@ class SklearnModel():
 
     def train(self):
         """Train the regression model."""
-        X = np.load(self.data_dir + '/train/X.npy')
+        # Load data.
+        with Timer() as t:
+            if self.method == 'true':
+                X = np.load(self.data_dir + '/train/X.npy')
+            elif self.method == 'mean':
+                X = np.load(self.data_dir + '/train/mu.npy')
+            elif self.method == 'sample':
+                mu = np.load(self.data_dir + '/train/mu.npy')
+                L_T = np.load(self.data_dir + '/train/L_T.npy')
+
+                X = np.array(
+                    [sp.sparse.linalg.spsolve_triangular(
+                        t,
+                        np.random.normal(0, 1, self.R).astype(np.float32),
+                        lower=False)
+                     for t in L_T]).astype(np.float32)
+
+                X = X + mu
+
+        if self.config['debug']:
+            print("Time to load/sample data: %s." % t.elapsed)
+
         Y = np.load(self.data_dir + '/train/Y.npy')
 
         self.lr.fit(X, Y)
         self.episode_id += 1
+
+        if self.config['debug']:
+            # Print the mean log-likelihood on the data.
+            pred = self.infer(X)
+            LL = np.mean(np.log(pred[np.arange(Y.size), Y]))
+
+            print('Log likelihood on training data: %s' % LL)
 
     def save(self):
         """Save the model to our results directory by using the episode_id."""
@@ -194,7 +235,7 @@ class SklearnModel():
         """Reload a model if it already exists otherwise initialise with
         random values."""
         if not os.path.exists(self.result_dir):
-            # Set random seed.
+            # Set random states.
             self.random_state = np.random.RandomState(self.random_seed)
 
             ## Set the initial parameters to random values so that we can call
@@ -226,6 +267,9 @@ class SklearnModel():
 
             # Set the episode id.
             self.episode_id = max(episode_ids)
+
+        # Sample state always initialised to the same according to seed.
+        self.sample_state = np.random.RandomState(self.sample_seed)
 
         # Set random state in LogisticRegression model (I believe its ok to
         # set it as no processing is done in LogisticRegression.__init__).
