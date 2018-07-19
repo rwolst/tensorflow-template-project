@@ -117,9 +117,15 @@ class TFModel(TFBasicModel):
                 X = np.array(
                     [sp.sparse.linalg.spsolve_triangular(
                         t,
-                        np.random.normal(0, 1, self.R).astype(np.float32),
+                        np.random.randn(self.R,
+                                        self.n_samples).astype(np.float32),
                         lower=False)
                      for t in L_T]).astype(np.float32)
+
+                if self.n_samples == 1:
+                    X = X[None, ...]
+                else:
+                    X = np.transpose(X, [2, 0, 1])
 
                 X = X + mu
 

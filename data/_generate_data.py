@@ -61,9 +61,9 @@ import scipy.sparse
 import scipy as sp
 
 # We use the following constants for generating the data.
-N_TRAIN = 650000
-N_VAL   = 150000
-N_TEST  = 200000
+N_TRAIN = 65000
+N_VAL   = 15000
+N_TEST  = 20000
 N = {'train': N_TRAIN, 'val': N_VAL, 'test': N_TEST}
 R = 50
 K = 20
@@ -173,7 +173,7 @@ for set_name in N:
         # (semi-)definite check.
         X[set_name] = np.array(
             [sp.sparse.linalg.spsolve_triangular(
-                t, np.random.normal(0, 1, R).astype(np.float32), lower=False)
+                t, np.random.randn(R).astype(np.float32), lower=False)
              for t in L_T[set_name]]).astype(np.float32)
 
         X[set_name] = X[set_name] + mu[set_name]

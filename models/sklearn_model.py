@@ -127,7 +127,7 @@ class SklearnModel():
                 X = np.array(
                     [sp.sparse.linalg.spsolve_triangular(
                         t,
-                        np.random.normal(0, 1, self.R).astype(np.float32),
+                        np.random.randn(self.R).astype(np.float32),
                         lower=False)
                      for t in L_T]).astype(np.float32)
 
