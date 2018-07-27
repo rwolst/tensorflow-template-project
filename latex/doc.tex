@@ -237,8 +237,34 @@ $$ \frac{\partial LL^{(2)}(W)}{\partial W} = \sum_{t=1}^T  \frac{\sum_{\bfx \in 
 
 \begin{remark}
 \begin{enumerate}
-  \item The size of the sets $\mathbb{X}_t$ no longer matters once we consider the derivative of $LL^{(2)}(W)$ (which is what will be used in gradient ascent/descent). Hence all that matters is we have enough samples for a `good' approximation to each integral. Even then the definition of good really is whether the optimisation converges to the correct values and if we have enough observations, it may be enough to simply have $| \mathbb{X}_t | = 1$!
-  \item If we have $| \mathbb{X}_t | = 1 $ for all $t$, then $LL^{(2)}(W)$ is in the form of a standard softmax regression, like $LL^{(1)}(W)$, with the only difference being that $LL^{(1)}(W)$ uses the mean value of the observations $\bfmu_t$ and $LL^{(2)}(W)$ uses a sample from $MVN(\bfmu_t, \Sigma_t)$.
+  \item The size of the sets $\mathbb{X}_t$ no longer matters once we consider
+        the derivative of $LL^{(2)}(W)$ (which is what will be used in gradient
+        ascent/descent). Hence all that matters is we have enough samples for a
+        `good' approximation to each integral. Even then the definition of good
+        really is whether the optimisation converges to the correct values and
+        if we have enough observations, it may be enough to simply have $|
+        \mathbb{X}_t | = 1$!
+  \item In some border cases however we must make very sure we have enough
+        observations in our set for a good prediction. Consider $n=1$, $k=2$
+        and $g_W(x) = [I(Wx > 2), I(Wx \leq 2)]^T$. Then for $x \leq W/2$ we
+        predict class $1$ and for $x > W/2$ we predict class $0$. Hence if the
+        true $x$ value caused a class $0$ prediction but a single sampled value
+        caused a class $1$ prediction, then the true parameter value $W$ will
+        cause an estimated log likelihood of $- \infty$! Even worse, if this
+        happened multiple times, it may be impossible to have any non
+        degenerate value for the estimated value of $W$. Of course the model we
+        use for $g_W$ is a multinomial model so the above definition is
+        impossible. However we can get similar situation arising if the
+        distribution of x has a very large variance. For example, the observed
+        class may be class $0$, but the single sampled value may have a very
+        large magnitude making the prediction of class $1$ occur with very high
+        probability. This can be enough to significantly affect the overall
+        log likelihood and hence cause a bad $W$ estimation.
+  \item If we have $| \mathbb{X}_t | = 1 $ for all $t$, then $LL^{(2)}(W)$ is
+        in the form of a standard softmax regression, like $LL^{(1)}(W)$, with
+        the only difference being that $LL^{(1)}(W)$ uses the mean value of the
+        observations $\bfmu_t$ and $LL^{(2)}(W)$ uses a sample from
+        $MVN(\bfmu_t, \Sigma_t)$.
 \end{enumerate}
 \end{remark}
 
