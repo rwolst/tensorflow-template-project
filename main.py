@@ -16,11 +16,10 @@ parser = argparse.ArgumentParser(description="Endpoint for running tests on"
                                              " random inputs.")
 parser.add_argument('function',
                     type=str,
-                    default="Train",
                     help="What you would like to do: Train, Infer, Plot.")
-parser.add_argument('--model_name',
+parser.add_argument('--model-name',
                     type=str,
-                    default="TF_Random",
+                    default="TFModel",
                     help="Name of the model to use.")
 parser.add_argument('--best',
                     action='store_true',
@@ -28,21 +27,21 @@ parser.add_argument('--best',
 parser.add_argument('--debug',
                     action='store_true',
                     help="Print the configuration when creating model.")
-parser.add_argument('--sample_seed',
+parser.add_argument('--sample-seed',
                     type=int,
                     default=np.random.randint(0, 2**32 - 1),
                     help="Value of sample seed (used for sampling).")
-parser.add_argument('--random_seed',
+parser.add_argument('--random-seed',
                     type=int,
                     default=np.random.randint(0, 2**32 - 1),
                     help="Value of random seed (used for everything other than"
                          " sampling).")
-parser.add_argument('--result_dir',
+parser.add_argument('--result-dir',
                     type=str,
                     default=None,
                     help="Name of the directory to store/log the model (if it"
                          " exists, the model will be loaded from it).")
-parser.add_argument('--data_dir',
+parser.add_argument('--data-dir',
                     type=str,
                     default=project_dir + '/data/',
                     help="Name of the directory data is stored in.")
@@ -50,7 +49,7 @@ parser.add_argument('--solver',
                     type=str,
                     default='saga',
                     help="The LogisticRegression solver to use.")
-parser.add_argument('--max_iter',
+parser.add_argument('--max-iter',
                     type=int,
                     default=2000,
                     help="Number of training steps.")
@@ -63,6 +62,14 @@ parser.add_argument('--C',
                     type=float,
                     default=1,
                     help="L2 penalty size.")
+parser.add_argument('--lr',
+                    type=float,
+                    default=0.05,
+                    help="Learning rate to use.")
+parser.add_argument('--batch-size',
+                    type=int,
+                    default=100,
+                    help="(Mini-)batch size to use.")
 parser.add_argument('--R',
                     type=int,
                     default=50,
@@ -80,7 +87,7 @@ parser.add_argument('--method',
                          " to learn by taking mean values from distribution,"
                          " by sampling them, or by using the actual true"
                          " values.")
-parser.add_argument('--n_samples',
+parser.add_argument('--n-samples',
                     type=int,
                     default=1,
                     help="Total samples to take from distribution. It must be"

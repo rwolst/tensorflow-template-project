@@ -44,6 +44,11 @@ Note: It doesn't actually download anything but instead generates the data. A
 future project however may have this actually download something.
 
 ### Training
+The following functions can be used
+
+    python3 main.py Train --model-name SklearnModel --debug --max-iter 10
+
+    python3 main.py Train --model-name TFModel --debug --max-iter 10
 
 ### Viualising
 

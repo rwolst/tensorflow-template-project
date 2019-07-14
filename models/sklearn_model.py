@@ -97,6 +97,7 @@ class SklearnModel():
                                      multi_class='multinomial',
                                      max_iter=self.max_iter,
                                      C=self.C,
+                                     tol=self.tol,
                                      fit_intercept=True,
                                      warm_start=True)
         if self.config['debug']:

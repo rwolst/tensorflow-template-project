@@ -6,6 +6,7 @@ import os
 import copy
 import json
 import tensorflow as tf
+from pprint import pprint
 
 
 class TFBasicModel():
@@ -26,7 +27,8 @@ class TFBasicModel():
         self.config = copy.deepcopy(config)
 
         if config['debug']:
-            print('config', self.config)
+            print('Config:')
+            pprint(self.config)
 
         # Important to have a random seed for reproducible experimanets.
         # Remember to use it in your TF graph (`tf.set_random_seed()`).
@@ -108,7 +110,7 @@ class TFBasicModel():
         raise Exception("The learn_from_epoch function must be overriden by"
                         " the model.")
 
-    def train(self, save_every=1):
+    def train(self):
         # This function is usually common to all your models, Here is an
         # example:
         data = self.load_data('train')
@@ -116,22 +118,18 @@ class TFBasicModel():
         for epoch_id in range(0, self.max_iter):
             self.learn_from_epoch(data)
 
-            # If you don't want to save during training, you can just pass a
-            # negative number.
-            if save_every > 0 and epoch_id % save_every == 0:
-                self.save()
+        self.episode_id += 1
 
     def save(self):
         # This function is usually common to all your models, Here is an
         # example:
         global_step_t = tf.train.get_global_step(self.graph)
-        global_step, episode_id = self.sess.run([global_step_t,
-                                                 self.episode_id])
+        global_step = self.sess.run([global_step_t])
         if self.config['debug']:
             print("Saving to %s with global_step %d"
                   % (self.result_dir, global_step))
         self.saver.save(self.sess,
-                        self.result_dir + '/model-ep_' + str(episode_id),
+                        self.result_dir + '/model-ep_',
                         global_step)
 
         # I always keep the configuration that
@@ -153,6 +151,11 @@ class TFBasicModel():
             # case I believe this happens automatically.
             init_op = self.graph.get_operation_by_name('init')
             self.sess.run(init_op)
+
+            # Set the episode_id measuring how many times we have trained the
+            # model. As we use `warm_start = True` this is analagous to
+            # re-running training in Tensorflow.
+            self.episode_id = 0
         else:
             if self.config['debug']:
                 print('Loading the model from folder: %s' % self.result_dir)
