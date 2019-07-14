@@ -92,6 +92,14 @@ parser.add_argument('--n-samples',
                     default=1,
                     help="Total samples to take from distribution. It must be"
                          " 1 when using sklearn model.")
+parser.add_argument('--lr',
+                    type=float,
+                    default=0.05,
+                    help="Learning rate to use for the model.")
+parser.add_argument('--batch_size',
+                    type=float,
+                    default=100,
+                    help="Size of batches to use when learning.")
 
 FLAGS, unparsed = parser.parse_known_args()
 
